@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRF 推廣成效追蹤</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F5F2ED;
+    --bg2: #EDE9E2;
+    --bg3: #E2DDD5;
+    --card: #FDFBF8;
+    --border: #D5CFC5;
+    --border2: #C4BDB1;
+    --text: #2C2820;
+    --text2: #6B6358;
+    --text3: #9E9488;
+    --accent: #7A6E5F;
+    --accent2: #A89880;
+    --green: #4A7C59;
+    --green-bg: #EBF3EE;
+    --amber: #8B6914;
+    --amber-bg: #F5EDD8;
+    --red: #8B3A2A;
+    --red-bg: #F5E8E5;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .header-title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .header-sub {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .sync-status {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--bg2);
+    color: var(--text3);
+    transition: all 0.3s;
+  }
+  .sync-status.syncing { background: var(--amber-bg); color: var(--amber); }
+  .sync-status.ok      { background: var(--green-bg); color: var(--green); }
+  .sync-status.err     { background: var(--red-bg);   color: var(--red); }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.12em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .form-grid {
+    display: grid;
+    gap: 12px;
+  }
+
+  .form-row-2 { grid-template-columns: 1fr 1fr; }
+  .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 5px;
+    letter-spacing: 0.03em;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    height: 38px;
+    padding: 0 10px;
+    font-size: 14px;
+    font-family: 'Noto Serif TC', serif;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    background: var(--card);
+  }
+
+  .btn-add {
+    width: 100%;
+    height: 42px;
+    margin-top: 14px;
+    background: var(--accent);
+    color: #FDFBF8;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-add:hover { background: var(--text); }
+  .btn-add:active { transform: scale(0.99); }
+
+  .record {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 8px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--bg2);
+  }
+
+  .record:last-child { border-bottom: none; padding-bottom: 0; }
+  .record:first-child { padding-top: 0; }
+
+  .record-label {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 5px;
+    color: var(--text);
+  }
+
+  .record-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .stat-pill {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text2);
+    background: var(--bg2);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  .rate-pill {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+
+  .rate-high { background: var(--green-bg); color: var(--green); }
+  .rate-mid  { background: var(--amber-bg); color: var(--amber); }
+  .rate-low  { background: var(--red-bg);   color: var(--red); }
+  .rate-none { background: var(--bg3); color: var(--text3); }
+
+  .record-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding-top: 2px;
+  }
+
+  .btn-edit, .btn-del {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 3px 8px;
+    color: var(--text2);
+    font-family: 'Noto Serif TC', serif;
+    transition: all 0.12s;
+  }
+
+  .btn-edit:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-del:hover  { border-color: var(--red); color: var(--red); }
+
+  .empty {
+    font-size: 13px;
+    color: var(--text3);
+    padding: 8px 0;
+    text-align: center;
+    font-style: italic;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .summary-box {
+    background: var(--bg2);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .summary-box .s-label {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .summary-box .s-val {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  /* Modal */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(44,40,32,0.45);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .modal-bg.open { display: flex; }
+
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .btn-save {
+    flex: 1;
+    height: 38px;
+    background: var(--accent);
+    color: #FDFBF8;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: 'Noto Serif TC', serif;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .btn-save:hover { background: var(--text); }
+
+  .btn-cancel {
+    height: 38px;
+    padding: 0 16px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: 'Noto Serif TC', serif;
+    color: var(--text2);
+    cursor: pointer;
+  }
+
+  .btn-cancel:hover { border-color: var(--accent2); }
+
+  @media (max-width: 480px) {
+    .form-row-3 { grid-template-columns: 1fr 1fr; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .header-title { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <span class="header-title">PRF 推廣成效追蹤</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="header-sub">智齒門診</span>
+      <span class="sync-status" id="sync-badge">讀取中</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- 累積統計 -->
+  <div class="card">
+    <div class="section-label">累積統計</div>
+    <div class="summary-grid">
+      <div class="summary-box">
+        <div class="s-label">診次</div>
+        <div class="s-val" id="s-sessions">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="s-label">拔牙患者</div>
+        <div class="s-val" id="s-patients">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="s-label">PRF 件數</div>
+        <div class="s-val" id="s-prf">0</div>
+      </div>
+      <div class="summary-box">
+        <div class="s-label">整體推廣率</div>
+        <div class="s-val" id="s-rate">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增記錄 -->
+  <div class="card">
+    <div class="section-label">新增記錄</div>
+    <div class="form-grid form-row-2">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" id="inp-date" />
+      </div>
+      <div class="field">
+        <label>診次</label>
+        <select id="inp-session">
+          <option value="早診">早診</option>
+          <option value="午診">午診</option>
+          <option value="晚診" selected>晚診</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid form-row-3" style="margin-top:12px;">
+      <div class="field">
+        <label>拔牙患者數</label>
+        <input type="number" id="inp-patients" min="0" value="0" />
+      </div>
+      <div class="field">
+        <label>PRF 件數</label>
+        <input type="number" id="inp-prf" min="0" value="0" />
+      </div>
+      <div class="field">
+        <label>膠原蛋白件數</label>
+        <input type="number" id="inp-collagen" min="0" value="0" />
+      </div>
+    </div>
+    <button class="btn-add" onclick="addRecord()">新增這診記錄</button>
+  </div>
+
+  <!-- 各診記錄 -->
+  <div class="card">
+    <div class="section-label">各診結果</div>
+    <div id="records-list">
+      <div class="empty">尚無記錄</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- 編輯 Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title">編輯記錄</div>
+    <div class="form-grid form-row-2">
+      <div class="field">
+        <label>日期</label>
+        <input type="date" id="e-date" />
+      </div>
+      <div class="field">
+        <label>診次</label>
+        <select id="e-session">
+          <option value="早診">早診</option>
+          <option value="午診">午診</option>
+          <option value="晚診">晚診</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid form-row-3" style="margin-top:12px;">
+      <div class="field">
+        <label>拔牙患者數</label>
+        <input type="number" id="e-patients" min="0" />
+      </div>
+      <div class="field">
+        <label>PRF 件數</label>
+        <input type="number" id="e-prf" min="0" />
+      </div>
+      <div class="field">
+        <label>膠原蛋白件數</label>
+        <input type="number" id="e-collagen" min="0" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveEdit()">儲存</button>
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzomz_lWCTmD5lxiBXr0Cp97Z2zt6ZOxuIdum49_Ut-NA5rReCfdwCyLzHeW6yBBdZ0/exec';
+  const KEY = 'prf_records_v1';
+  let records = [];
+  let editIdx = -1;
+
+  function setBadge(state, text) {
+    const b = document.getElementById('sync-badge');
+    b.className = 'sync-status ' + state;
+    b.textContent = text;
+  }
+
+  async function syncToSheets() {
+    setBadge('syncing', '同步中…');
+    try {
+      const body = { records: records.map(r => ({
+        ...r,
+        weekday: getWeekday(r.date).replace(/[（）]/g,'')
+      }))};
+      await fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      setBadge('ok', '已同步');
+      setTimeout(() => setBadge('', '智齒門診'), 2500);
+    } catch(e) {
+      setBadge('err', '同步失敗');
+    }
+  }
+
+  async function loadFromSheets() {
+    setBadge('syncing', '讀取中…');
+    try {
+      const res = await fetch(GAS_URL + '?t=' + Date.now());
+      const data = await res.json();
+      if (data.records && data.records.length > 0) {
+        records = data.records.map(r => ({
+          date: String(r.date),
+          session: r.session,
+          patients: Number(r.patients) || 0,
+          prf: Number(r.prf) || 0,
+          collagen: Number(r.collagen) || 0
+        }));
+        localStorage.setItem(KEY, JSON.stringify(records));
+        setBadge('ok', '已載入');
+        setTimeout(() => setBadge('', ''), 2000);
+      } else {
+        const local = localStorage.getItem(KEY);
+        if (local) records = JSON.parse(local);
+        setBadge('', '');
+      }
+    } catch(e) {
+      const local = localStorage.getItem(KEY);
+      if (local) { try { records = JSON.parse(local); } catch(_) {} }
+      setBadge('err', '離線模式');
+    }
+    render();
+  }
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(records));
+    syncToSheets();
+  }
+
+  // Convert AD date string (YYYY-MM-DD) to ROC string (115.04.25)
+  function adToRoc(adStr) {
+    if (!adStr) return '';
+    const [y, m, d] = adStr.split('-');
+    return (parseInt(y) - 1911) + '.' + m + '.' + d;
+  }
+
+  // Convert ROC string (115.04.25) to AD date string (YYYY-MM-DD)
+  function rocToAd(rocStr) {
+    if (!rocStr) return '';
+    const parts = rocStr.split('.');
+    if (parts.length !== 3) return '';
+    const y = parseInt(parts[0]) + 1911;
+    return y + '-' + parts[1] + '-' + parts[2];
+  }
+
+  function getWeekday(rocStr) {
+    const adStr = rocToAd(rocStr);
+    if (!adStr) return '';
+    const d = new Date(adStr);
+    if (isNaN(d.getTime())) return '';
+    const days = ['日','一','二','三','四','五','六'];
+    return '（' + days[d.getDay()] + '）';
+  }
+
+  function rateClass(rate) {
+    if (rate === null) return 'rate-none';
+    if (rate >= 60) return 'rate-high';
+    if (rate >= 30) return 'rate-mid';
+    return 'rate-low';
+  }
+
+  function rateLabel(patients, prf) {
+    if (patients === 0) return { text: '—', cls: 'rate-none' };
+    const r = Math.round((prf / patients) * 100);
+    return { text: r + '%', cls: rateClass(r) };
+  }
+
+  function render() {
+    const list = document.getElementById('records-list');
+    if (records.length === 0) {
+      list.innerHTML = '<div class="empty">尚無記錄，新增第一筆吧</div>';
+    } else {
+      list.innerHTML = records.map((r, i) => {
+        const rl = rateLabel(r.patients, r.prf);
+        const dayMap = { '早診':'早', '午診':'午', '晚診':'晚' };
+        const tag = dayMap[r.session] || r.session;
+        const weekday = getWeekday(r.date);
+        return `
+          <div class="record">
+            <div>
+              <div class="record-label">${r.date}${weekday}${tag}</div>
+              <div class="record-stats">
+                <span class="stat-pill">患者 ${r.patients}</span>
+                <span class="stat-pill">PRF ${r.prf}</span>
+                <span class="stat-pill">膠原 ${r.collagen}</span>
+                <span class="rate-pill ${rl.cls}">推廣率 ${rl.text}</span>
+              </div>
+            </div>
+            <div class="record-actions">
+              <button class="btn-edit" onclick="openEdit(${i})">編輯</button>
+              <button class="btn-del" onclick="deleteRecord(${i})">刪除</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    const totalPatients = records.reduce((a, r) => a + r.patients, 0);
+    const totalPrf = records.reduce((a, r) => a + r.prf, 0);
+    document.getElementById('s-sessions').textContent = records.length;
+    document.getElementById('s-patients').textContent = totalPatients;
+    document.getElementById('s-prf').textContent = totalPrf;
+    document.getElementById('s-rate').textContent = totalPatients > 0 ? Math.round((totalPrf / totalPatients) * 100) + '%' : '—';
+  }
+
+  function addRecord() {
+    const adDate = document.getElementById('inp-date').value;
+    const date = adToRoc(adDate);
+    const session = document.getElementById('inp-session').value;
+    const patients = parseInt(document.getElementById('inp-patients').value) || 0;
+    const prf = parseInt(document.getElementById('inp-prf').value) || 0;
+    const collagen = parseInt(document.getElementById('inp-collagen').value) || 0;
+    if (!date) { alert('請選擇日期'); return; }
+    records.unshift({ date, session, patients, prf, collagen });
+    save(); render();
+    document.getElementById('inp-date').value = '';
+    document.getElementById('inp-patients').value = 0;
+    document.getElementById('inp-prf').value = 0;
+    document.getElementById('inp-collagen').value = 0;
+  }
+
+  function deleteRecord(i) {
+    if (!confirm('確定刪除這筆記錄？')) return;
+    records.splice(i, 1);
+    save(); render();
+  }
+
+  function openEdit(i) {
+    editIdx = i;
+    const r = records[i];
+    document.getElementById('e-date').value = rocToAd(r.date);
+    document.getElementById('e-session').value = r.session;
+    document.getElementById('e-patients').value = r.patients;
+    document.getElementById('e-prf').value = r.prf;
+    document.getElementById('e-collagen').value = r.collagen;
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+    editIdx = -1;
+  }
+
+  function saveEdit() {
+    if (editIdx < 0) return;
+    records[editIdx] = {
+      date: adToRoc(document.getElementById('e-date').value),
+      session: document.getElementById('e-session').value,
+      patients: parseInt(document.getElementById('e-patients').value) || 0,
+      prf: parseInt(document.getElementById('e-prf').value) || 0,
+      collagen: parseInt(document.getElementById('e-collagen').value) || 0,
+    };
+    save(); render(); closeModal();
+  }
+
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  loadFromSheets();
+</script>
+</body>
+</html>
