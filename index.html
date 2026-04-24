@@ -470,68 +470,45 @@
     b.textContent = text;
   }
 
+  function jsonp(url, cb) {
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      try { document.body.removeChild(script); } catch(_) {}
+      cb(null);
+    }, 10000);
+    window[cbName] = function(data) {
+      clearTimeout(timer);
+      delete window[cbName];
+      try { document.body.removeChild(script); } catch(_) {}
+      cb(data);
+    };
+    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName + '&t=' + Date.now();
+    document.body.appendChild(script);
+  }
+
   function syncToSheets() {
     setBadge('syncing', '同步中…');
     const body = { records: records.map(r => ({
       ...r,
       weekday: getWeekday(r.date).replace(/[（）]/g,'')
     }))};
-
-    // Use hidden iframe + form to POST without CORS issues
-    const frameId = 'sync_frame_' + Date.now();
-    const frame = document.createElement('iframe');
-    frame.name = frameId;
-    frame.style.display = 'none';
-    document.body.appendChild(frame);
-
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = GAS_URL;
-    form.target = frameId;
-    form.style.display = 'none';
-
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'payload';
-    input.value = JSON.stringify(body);
-    form.appendChild(input);
-    document.body.appendChild(form);
-
-    frame.onload = function() {
-      setBadge('ok', '已同步');
+    const encoded = encodeURIComponent(JSON.stringify(body));
+    jsonp(GAS_URL + '?action=write&data=' + encoded, function(res) {
+      if (res && res.ok) {
+        setBadge('ok', '已同步');
+      } else {
+        setBadge('err', '同步失敗');
+      }
       setTimeout(() => setBadge('', '智齒門診'), 2500);
-      setTimeout(() => {
-        document.body.removeChild(frame);
-        document.body.removeChild(form);
-      }, 3000);
-    };
-
-    setTimeout(() => {
-      setBadge('ok', '已同步');
-      setTimeout(() => setBadge('', '智齒門診'), 2500);
-    }, 3000);
-
-    form.submit();
+    });
   }
 
   function loadFromSheets() {
     setBadge('syncing', '讀取中…');
-    const cbName = 'gasCallback_' + Date.now();
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => {
-      setBadge('err', '離線模式');
-      delete window[cbName];
-      document.body.removeChild(script);
-      const local = localStorage.getItem(KEY);
-      if (local) { try { records = JSON.parse(local); } catch(_) {} }
-      render();
-    }, 8000);
-
-    window[cbName] = function(data) {
-      clearTimeout(timeout);
-      delete window[cbName];
-      document.body.removeChild(script);
-      if (data.records && data.records.length > 0) {
+    jsonp(GAS_URL + '?action=read', function(data) {
+      if (data && data.records && data.records.length > 0) {
         records = data.records.map(r => ({
           date: String(r.date),
           session: r.session,
@@ -545,13 +522,11 @@
       } else {
         const local = localStorage.getItem(KEY);
         if (local) { try { records = JSON.parse(local); } catch(_) {} }
-        setBadge('', '智齒門診');
+        setBadge('err', '離線模式');
+        setTimeout(() => setBadge('', '智齒門診'), 2000);
       }
       render();
-    };
-
-    script.src = GAS_URL + '?callback=' + cbName + '&t=' + Date.now();
-    document.body.appendChild(script);
+    });
   }
 
   function save() {
