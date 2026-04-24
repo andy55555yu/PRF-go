@@ -490,11 +490,23 @@
     }
   }
 
-  async function loadFromSheets() {
+  function loadFromSheets() {
     setBadge('syncing', '讀取中…');
-    try {
-      const res = await fetch(GAS_URL + '?t=' + Date.now());
-      const data = await res.json();
+    const cbName = 'gasCallback_' + Date.now();
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      setBadge('err', '離線模式');
+      delete window[cbName];
+      document.body.removeChild(script);
+      const local = localStorage.getItem(KEY);
+      if (local) { try { records = JSON.parse(local); } catch(_) {} }
+      render();
+    }, 8000);
+
+    window[cbName] = function(data) {
+      clearTimeout(timeout);
+      delete window[cbName];
+      document.body.removeChild(script);
       if (data.records && data.records.length > 0) {
         records = data.records.map(r => ({
           date: String(r.date),
@@ -505,18 +517,17 @@
         }));
         localStorage.setItem(KEY, JSON.stringify(records));
         setBadge('ok', '已載入');
-        setTimeout(() => setBadge('', ''), 2000);
+        setTimeout(() => setBadge('', '智齒門診'), 2000);
       } else {
         const local = localStorage.getItem(KEY);
-        if (local) records = JSON.parse(local);
-        setBadge('', '');
+        if (local) { try { records = JSON.parse(local); } catch(_) {} }
+        setBadge('', '智齒門診');
       }
-    } catch(e) {
-      const local = localStorage.getItem(KEY);
-      if (local) { try { records = JSON.parse(local); } catch(_) {} }
-      setBadge('err', '離線模式');
-    }
-    render();
+      render();
+    };
+
+    script.src = GAS_URL + '?callback=' + cbName + '&t=' + Date.now();
+    document.body.appendChild(script);
   }
 
   function save() {
